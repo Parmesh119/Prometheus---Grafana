@@ -4,6 +4,10 @@
 
 - Prometheus use PromQL language which is flexible query language
 
+- Prometheus is pull based monitoring system.
+
+- Prometheus can also send alert message using its Alertmanager.
+
 **What is metrics?**
 
 - Metrics are numerical measurements in layperson terms.
@@ -31,3 +35,37 @@
 **Grafana**
 
 - Grafana is a open-source visualization and monitoring tool used to analyze and display time-series data. 
+
+- Grafana open source software enables you to query, visualize, alert on, and explore your metrics, logs, and traces wherever they are stored.
+
+- Grafana OSS provides you with tools to turn your time-series database (TSDB) data into insightful graphs and visualizations.
+
+**This all tools are used in observability**
+
+**What is Observability?**
+
+- There are mainly four thing in Observability which comes after successfully deploying the application on cloud or kubernetes.
+
+- That is Monitoring, Logging, Tracing, Alerting.
+
+**Monitoring**
+
+- Once we deployed our application we get to know that what is happening inside. The CPU use, network use, need to know metrics that is monitoring.
+
+**Logging**
+
+- Collect logs
+
+**Tracing**
+
+- If error comes need to understand how it comes, how to solve it that is tracing
+
+**Alerting**
+
+- Let's take that CPU use goes over 70% then need to send email that CPU usage is above thresold that is alerting.
+
+
+
+- And If I put this all thing in visualization then it create dashboards.
+
+- So for monitoring, metrics and tracing for that we are using Prometheus and for dashboards we are using Grafana.
