@@ -1,8 +1,8 @@
-** Prometheus **
+**Prometheus**
 
 - Prometheus is an open-source time-series database (TSDB) designed for monitoring and alerting in cloud-native environments. It collects metrics from various endpoints via its powerful query language, PromQL, and stores them in a time-series format.
 
-** Thanos **
+**Thanos**
 
 - Every tool has its limitations.
 
