@@ -16,5 +16,5 @@
 
 - Thanos provides set of components to store objects.
 
-- 
+- For better understanding: https://last9.io/blog/prometheus-vs-thanos/#:~:text=Thanos%20is%20an%20open%2Dsource%20tool%20that%20extends%20Prometheus%20by,better%20performance%20across%20large%20infrastructures.
 
