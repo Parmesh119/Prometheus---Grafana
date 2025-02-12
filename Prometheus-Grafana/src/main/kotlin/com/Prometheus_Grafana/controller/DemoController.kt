@@ -65,6 +65,8 @@ class DemoController(private val meterRegistry: MeterRegistry) {
         return ResponseEntity.status(status).body(response)
     }
 
+
+
     var timeTaken = 0.toLong()
     @GetMapping("/data-demo")
     fun getData(): ResponseEntity<MetricsResponse> {
@@ -129,7 +131,10 @@ class DemoController(private val meterRegistry: MeterRegistry) {
     fun getMetrics(): ResponseEntity<Map<String, Any>> {
         val metrics = mapOf(
             "calls" to getEndpointMetrics(),
-            "latency" to getLatencyMetrics()
+            "latency" to getLatencyMetrics(),
+            "total_calls" to apiCounter.count(),
+            "success_calls" to apiSuccessCounter.count(),
+            "error_calls" to apiErrorCounter.count()
         )
         return ResponseEntity.ok(metrics)
     }
