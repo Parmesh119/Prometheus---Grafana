@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.http.HttpStatus
 import kotlin.system.measureTimeMillis
 import java.util.concurrent.TimeUnit
+import kotlin.random.Random
 
 data class EndpointMetrics(
     val totalCalls: Double,
@@ -74,40 +75,56 @@ class DemoController(private val meterRegistry: MeterRegistry) {
         return ResponseEntity.status(status).body(response)
     }
 
+
+    private fun simulateWork(complexity: Int): String {
+        // Simulate different levels of work based on complexity.
+        val dataSize = complexity * 1000 // Vary data size.
+        val data = ByteArray(dataSize) { Random.nextInt().toByte() } // Fill with random data.
+
+        // Simulate CPU-bound work (e.g., hashing). This is a placeholder.
+        val hash = data.contentHashCode()
+
+        return "Processed data of size ${dataSize} and hash ${hash}"
+    }
+
+    var response: ResponseEntity<MetricsResponse> = ResponseEntity.ok().build()
     @GetMapping("/data-demo")
     fun getData(): ResponseEntity<MetricsResponse> {
-        var response: ResponseEntity<MetricsResponse>
-        var timeTaken = 0L // Correct initialization
-        timeTaken = measureTimeMillis {
-            try {
-                Thread.sleep(100) // Simulating work
-                response = createResponse("Data Response", HttpStatus.OK, 0.0)
 
-            } catch (e: Exception) {
-                response = createResponse("Error in Data API", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
+        var timeTaken = 0L
+        val startTime = System.nanoTime()
+        try {
+            // Simulate work without Thread.sleep
+            val complexity = 1
+            val dataResult = simulateWork(complexity)
+            response = createResponse("Data Response: $dataResult", HttpStatus.OK, 0.0) //Include result in response
 
-            }
+        } catch (e: Exception) {
+            response = createResponse("Error in Data API: ${e.message}", HttpStatus.INTERNAL_SERVER_ERROR, 0.0) //Include error message
+        } finally {
+            timeTaken = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)
+            val status = if (response.statusCode == HttpStatus.OK) "success" else "error"
+            recordApiMetrics("/data-demo", status, timeTaken)
         }
-        val status = if (response.statusCode == HttpStatus.OK) "success" else "error"
-        recordApiMetrics("/data-demo", status, timeTaken) // Corrected endpoint name and status
         return createResponse(response.body?.data ?: "", response.statusCode as HttpStatus, timeTaken.toDouble())
-
     }
 
     @GetMapping("/info")
     fun getInfo(): ResponseEntity<MetricsResponse> {
-        var response: ResponseEntity<MetricsResponse>
         var timeTaken = 0L
-        timeTaken = measureTimeMillis {
-            try {
-                Thread.sleep(150) // Simulating work
-                response = createResponse("Info Response", HttpStatus.OK, 0.0)
-            } catch (e: Exception) {
-                response = createResponse("Error in Info API", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
-            }
+        val startTime = System.nanoTime()
+        try {
+            // Simulate work without Thread.sleep
+            val complexity = 2
+            val dataResult = simulateWork(complexity)
+            response = createResponse("Info Response: $dataResult", HttpStatus.OK, 0.0)
+        } catch (e: Exception) {
+            response = createResponse("Error in Info API: ${e.message}", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
+        } finally {
+            timeTaken = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)
+            val status = if (response.statusCode == HttpStatus.OK) "success" else "error"
+            recordApiMetrics("/info", status, timeTaken)
         }
-        val status = if (response.statusCode == HttpStatus.OK) "success" else "error"
-        recordApiMetrics("/info", status, timeTaken)
         return createResponse(response.body?.data ?: "", response.statusCode as HttpStatus, timeTaken.toDouble())
     }
 
@@ -115,28 +132,38 @@ class DemoController(private val meterRegistry: MeterRegistry) {
     fun getError(): ResponseEntity<MetricsResponse> {
         var response: ResponseEntity<MetricsResponse>
         var timeTaken = 0L
-        timeTaken = measureTimeMillis {
-            Thread.sleep(50) // Simulating work
-            response = createResponse("Simulated Error", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
+        val startTime = System.nanoTime()
+        try {
+            // Simulate work without Thread.sleep, but force an error
+            val complexity = 0 // No work required
+
+            throw RuntimeException("Simulated Error in /error endpoint") // Simulate an exception
+        } catch (e: Exception) {
+            response = createResponse("Simulated Error: ${e.message}", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
+        } finally {
+            timeTaken = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)
+            recordApiMetrics("/error", "error", timeTaken)
         }
-        recordApiMetrics("/error", "error", timeTaken)
         return createResponse(response.body?.data ?: "", response.statusCode as HttpStatus, timeTaken.toDouble())
     }
 
     @GetMapping("/heavy-task")
     fun performHeavyTask(): ResponseEntity<MetricsResponse> {
-        var response: ResponseEntity<MetricsResponse>
         var timeTaken = 0L
-        timeTaken = measureTimeMillis {
-            try {
-                Thread.sleep(2000) // Simulating a heavy operation
-                response = createResponse("Heavy Task Completed", HttpStatus.OK, 0.0)
-            } catch (e: Exception) {
-                response = createResponse("Error in Heavy Task", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
-            }
+        val startTime = System.nanoTime()
+        try {
+            // Simulate a more demanding task
+            Thread.sleep(2000)
+            val complexity = 10
+            val dataResult = simulateWork(complexity)
+            response = createResponse("Heavy Task Completed: $dataResult", HttpStatus.OK, 0.0)
+        } catch (e: Exception) {
+            response = createResponse("Error in Heavy Task: ${e.message}", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
+        } finally {
+            timeTaken = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime)
+            val status = if (response.statusCode == HttpStatus.OK) "success" else "error"
+            recordApiMetrics("/heavy-task", status, timeTaken)
         }
-        val status = if (response.statusCode == HttpStatus.OK) "success" else "error"
-        recordApiMetrics("/heavy-task", status, timeTaken)
         return createResponse(response.body?.data ?: "", response.statusCode as HttpStatus, timeTaken.toDouble())
     }
 
