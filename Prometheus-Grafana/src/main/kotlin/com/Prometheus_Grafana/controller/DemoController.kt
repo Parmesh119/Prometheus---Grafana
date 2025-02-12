@@ -1,17 +1,22 @@
 package com.Prometheus_Grafana.controller
 
 import io.micrometer.core.instrument.MeterRegistry
-import io.micrometer.core.instrument.Timer
 import org.springframework.web.bind.annotation.*
 import org.springframework.http.ResponseEntity
 import org.springframework.http.HttpStatus
 import kotlin.system.measureTimeMillis
 import java.util.concurrent.TimeUnit
 
+data class EndpointMetrics(
+    val totalCalls: Double,
+    val successCalls: Double,
+    val failedCalls: Double
+)
+
 data class MetricsResponse(
     val data: String,
-    val metrics: Map<String, Double>,
-    val latency: Map<String, Double>
+    val metrics: Map<String, EndpointMetrics>,
+    val latencyMs: Double  // Explicitly named as milliseconds
 )
 
 @RestController
@@ -24,118 +29,129 @@ class DemoController(private val meterRegistry: MeterRegistry) {
     private val apiCounter = meterRegistry.counter("api_calls_total")
     private val apiSuccessCounter = meterRegistry.counter("api_success_total")
     private val apiErrorCounter = meterRegistry.counter("api_error_total")
+    private val apiLatency = meterRegistry.timer("api_latency_milliseconds") // Changed name for clarity
 
-    // Endpoint-specific counters and timers
+    // Endpoint-specific counters
     private val endpointCounters = endpoints.associateWith { endpoint ->
         meterRegistry.counter("endpoint_calls_total", "endpoint", endpoint)
     }
 
-    private val endpointTimers = endpoints.associateWith { endpoint ->
-        meterRegistry.timer("endpoint_latency", "endpoint", endpoint)
+    private val endpointSuccessCounters = endpoints.associateWith { endpoint ->
+        meterRegistry.counter("endpoint_success_total", "endpoint", endpoint)
+    }
+
+    private val endpointErrorCounters = endpoints.associateWith { endpoint ->
+        meterRegistry.counter("endpoint_error_total", "endpoint", endpoint)
     }
 
     private fun recordApiMetrics(endpoint: String, status: String, timeTaken: Long) {
         apiCounter.increment()
+        apiLatency.record(timeTaken, TimeUnit.MILLISECONDS)
         endpointCounters[endpoint]?.increment()
-        endpointTimers[endpoint]?.record(timeTaken, TimeUnit.MILLISECONDS)
 
         if (status == "success") {
             apiSuccessCounter.increment()
+            endpointSuccessCounters[endpoint]?.increment()
         } else {
             apiErrorCounter.increment()
+            endpointErrorCounters[endpoint]?.increment()
         }
     }
 
-    private fun getEndpointMetrics(): Map<String, Double> {
+    private fun getEndpointMetrics(): Map<String, EndpointMetrics> {
         return endpoints.associateWith { endpoint ->
-            endpointCounters[endpoint]?.count() ?: 0.0
+            EndpointMetrics(
+                totalCalls = endpointCounters[endpoint]?.count() ?: 0.0,
+                successCalls = endpointSuccessCounters[endpoint]?.count() ?: 0.0,
+                failedCalls = endpointErrorCounters[endpoint]?.count() ?: 0.0
+            )
         }
     }
 
-    private fun getLatencyMetrics(): Map<String, Double> {
-        return endpoints.associateWith { endpoint ->
-            endpointTimers[endpoint]?.mean(TimeUnit.MILLISECONDS) ?: 0.0
-        }
-    }
-
-    private fun createResponse(data: String, status: HttpStatus): ResponseEntity<MetricsResponse> {
+    private fun createResponse(data: String, status: HttpStatus, latencyMs: Double): ResponseEntity<MetricsResponse> {
         val metrics = getEndpointMetrics()
-        val latency = getLatencyMetrics()
-        val response = MetricsResponse(data, metrics, latency)
+        val response = MetricsResponse(data, metrics, latencyMs)
         return ResponseEntity.status(status).body(response)
     }
 
-
-
-    var timeTaken = 0.toLong()
     @GetMapping("/data-demo")
     fun getData(): ResponseEntity<MetricsResponse> {
         var response: ResponseEntity<MetricsResponse>
+        var timeTaken = 0L // Correct initialization
         timeTaken = measureTimeMillis {
             try {
-                Thread.sleep(100) // Simulating some work
-                response = createResponse("Data Response", HttpStatus.OK)
-                recordApiMetrics("/data-demo", "success", timeTaken)
+                Thread.sleep(100) // Simulating work
+                response = createResponse("Data Response", HttpStatus.OK, 0.0)
+
             } catch (e: Exception) {
-                response = createResponse("Error in Data API", HttpStatus.INTERNAL_SERVER_ERROR)
-                recordApiMetrics("/data-demo", "error", timeTaken)
+                response = createResponse("Error in Data API", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
+
             }
         }
-        return response
+        val status = if (response.statusCode == HttpStatus.OK) "success" else "error"
+        recordApiMetrics("/data-demo", status, timeTaken) // Corrected endpoint name and status
+        return createResponse(response.body?.data ?: "", response.statusCode as HttpStatus, timeTaken.toDouble())
+
     }
 
     @GetMapping("/info")
     fun getInfo(): ResponseEntity<MetricsResponse> {
         var response: ResponseEntity<MetricsResponse>
+        var timeTaken = 0L
         timeTaken = measureTimeMillis {
             try {
-                Thread.sleep(150) // Simulating some work
-                response = createResponse("Info Response", HttpStatus.OK)
-                recordApiMetrics("/info", "success", timeTaken)
+                Thread.sleep(150) // Simulating work
+                response = createResponse("Info Response", HttpStatus.OK, 0.0)
             } catch (e: Exception) {
-                response = createResponse("Error in Info API", HttpStatus.INTERNAL_SERVER_ERROR)
-                recordApiMetrics("/info", "error", timeTaken)
+                response = createResponse("Error in Info API", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
             }
         }
-        return response
+        val status = if (response.statusCode == HttpStatus.OK) "success" else "error"
+        recordApiMetrics("/info", status, timeTaken)
+        return createResponse(response.body?.data ?: "", response.statusCode as HttpStatus, timeTaken.toDouble())
     }
 
     @GetMapping("/error")
     fun getError(): ResponseEntity<MetricsResponse> {
         var response: ResponseEntity<MetricsResponse>
+        var timeTaken = 0L
         timeTaken = measureTimeMillis {
-            Thread.sleep(50) // Simulating some work
-            response = createResponse("Simulated Error", HttpStatus.INTERNAL_SERVER_ERROR)
-            recordApiMetrics("/error", "error", timeTaken)
+            Thread.sleep(50) // Simulating work
+            response = createResponse("Simulated Error", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
         }
-        return response
+        recordApiMetrics("/error", "error", timeTaken)
+        return createResponse(response.body?.data ?: "", response.statusCode as HttpStatus, timeTaken.toDouble())
     }
 
     @GetMapping("/heavy-task")
     fun performHeavyTask(): ResponseEntity<MetricsResponse> {
         var response: ResponseEntity<MetricsResponse>
+        var timeTaken = 0L
         timeTaken = measureTimeMillis {
             try {
                 Thread.sleep(2000) // Simulating a heavy operation
-                response = createResponse("Heavy Task Completed", HttpStatus.OK)
-                recordApiMetrics("/heavy-task", "success", timeTaken)
+                response = createResponse("Heavy Task Completed", HttpStatus.OK, 0.0)
             } catch (e: Exception) {
-                response = createResponse("Error in Heavy Task", HttpStatus.INTERNAL_SERVER_ERROR)
-                recordApiMetrics("/heavy-task", "error", timeTaken)
+                response = createResponse("Error in Heavy Task", HttpStatus.INTERNAL_SERVER_ERROR, 0.0)
             }
         }
-        return response
+        val status = if (response.statusCode == HttpStatus.OK) "success" else "error"
+        recordApiMetrics("/heavy-task", status, timeTaken)
+        return createResponse(response.body?.data ?: "", response.statusCode as HttpStatus, timeTaken.toDouble())
     }
 
     @GetMapping("/metrics")
     fun getMetrics(): ResponseEntity<Map<String, Any>> {
-        val metrics = mapOf(
-            "calls" to getEndpointMetrics(),
-            "latency" to getLatencyMetrics(),
-            "total_calls" to apiCounter.count(),
-            "success_calls" to apiSuccessCounter.count(),
-            "error_calls" to apiErrorCounter.count()
+        val detailedMetrics = getEndpointMetrics()
+        val allMetrics = mapOf(
+            "endpoints" to detailedMetrics,
+            "global" to mapOf(
+                "total_calls" to apiCounter.count(),
+                "success_calls" to apiSuccessCounter.count(),
+                "error_calls" to apiErrorCounter.count(),
+                "mean_latency_ms" to apiLatency.mean(TimeUnit.MILLISECONDS)
+            )
         )
-        return ResponseEntity.ok(metrics)
+        return ResponseEntity.ok(allMetrics)
     }
 }
