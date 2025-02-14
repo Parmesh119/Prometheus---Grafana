@@ -1,32 +1,14 @@
-# Use multi-stage build for smaller final image
-FROM prom/prometheus:latest as prometheus
-FROM grafana/grafana:latest as grafana
+# Use Prometheus base image
+FROM prom/prometheus as prometheus
 
-# Final image
-FROM ubuntu:latest
-
-# Install necessary packages
-RUN apt-get update && apt-get install -y \
-    curl \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy Prometheus from its image
-COPY --from=prometheus /bin/prometheus /bin/
-COPY --from=prometheus /etc/prometheus /etc/prometheus
-
-# Copy Grafana from its image
-COPY --from=grafana /usr/share/grafana /usr/share/grafana
-COPY --from=grafana /etc/grafana /etc/grafana
-
-# Copy configuration files
+# Copy Prometheus config
 COPY prometheus.yml /etc/prometheus/prometheus.yml
-COPY start.sh /start.sh
 
-RUN chmod +x /start.sh
+# Use Grafana base image
+FROM grafana/grafana as grafana
 
-# Expose ports
-EXPOSE 3000 9090
+# Copy Grafana config
+COPY grafana.ini /etc/grafana/grafana.ini
 
-# Start both services
-CMD ["/start.sh"]
+# Run both services in a single container
+CMD ["sh", "-c", "prometheus --config.file=/etc/prometheus/prometheus.yml & grafana-server --config=/etc/grafana/grafana.ini"]
