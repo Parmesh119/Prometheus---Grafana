@@ -11,4 +11,4 @@ FROM grafana/grafana as grafana
 COPY grafana.ini /etc/grafana/grafana.ini
 
 # Run both services in a single container
-CMD ["sh", "-c", "prometheus --config.file=/etc/prometheus/prometheus.yml & grafana-server --config=/etc/grafana/grafana.ini"]
+CMD ["sh", "-c", "prometheus --config.file=./prometheus.yml & grafana-server --config=./grafana.ini"]
